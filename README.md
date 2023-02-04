@@ -84,7 +84,9 @@ repositories {
 ## Add dependency
 ```groovy
 dependencies {
-    implementation  'com.github.Kennyc1012:MultiStateView:2.2.0'
+    //implementation  'com.github.Kennyc1012:MultiStateView:2.2.0'
+    implementation 'com.github.licheedev:MultiStateView:2.2.1'
+
 }
 ```
 
