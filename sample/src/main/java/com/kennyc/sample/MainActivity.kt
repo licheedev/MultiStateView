@@ -17,14 +17,18 @@ class MainActivity : AppCompatActivity(), MultiStateView.StateListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+
         multiStateView = findViewById(R.id.multiStateView)
         multiStateView.listener = this
         multiStateView.getView(MultiStateView.ViewState.ERROR)?.findViewById<Button>(R.id.retry)
-                ?.setOnClickListener {
-                    multiStateView.viewState = MultiStateView.ViewState.LOADING
-                    Toast.makeText(applicationContext, "Fetching Data", Toast.LENGTH_SHORT).show()
-                    multiStateView.postDelayed({ multiStateView.viewState = MultiStateView.ViewState.CONTENT }, 3000L)
-                }
+            ?.setOnClickListener {
+                multiStateView.viewState = MultiStateView.ViewState.LOADING
+                Toast.makeText(applicationContext, "Fetching Data", Toast.LENGTH_SHORT).show()
+                multiStateView.postDelayed({
+                    multiStateView.viewState = MultiStateView.ViewState.CONTENT
+                }, 3000L)
+            }
 
         val list: ListView = multiStateView.findViewById(R.id.list)
 
@@ -33,7 +37,15 @@ class MainActivity : AppCompatActivity(), MultiStateView.StateListener {
             data[i] = "Row $i"
         }
 
-        list.adapter = ArrayAdapter<String>(applicationContext, android.R.layout.simple_list_item_1, data)
+
+        list.adapter =
+            ArrayAdapter<String>(applicationContext, android.R.layout.simple_list_item_1, data)
+        
+        
+        multiStateView.postDelayed({
+            multiStateView.viewState = MultiStateView.ViewState.CONTENT
+        }, 1000L)
+
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

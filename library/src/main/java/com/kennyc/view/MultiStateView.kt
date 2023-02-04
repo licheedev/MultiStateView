@@ -1,12 +1,11 @@
 package com.kennyc.view
 
-import android.animation.Animator
-import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
 import android.content.Context
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -15,9 +14,11 @@ import androidx.annotation.LayoutRes
 import com.kennyc.multistateview.R
 
 class MultiStateView
-@JvmOverloads constructor(context: Context,
-                          attrs: AttributeSet? = null,
-                          defStyle: Int = 0) : FrameLayout(context, attrs, defStyle) {
+@JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyle: Int = 0
+) : FrameLayout(context, attrs, defStyle) {
 
     enum class ViewState {
         CONTENT,
@@ -38,16 +39,22 @@ class MultiStateView
 
     var animateLayoutChanges: Boolean = false
 
+    /** 切换动画时长 */
+    var animationDuration: Int = DEFAULT_ANIMATION_DURATION
+
     var viewState: ViewState = ViewState.CONTENT
         set(value) {
             val previousField = field
-
             if (value != previousField) {
                 field = value
                 setView(previousField)
                 listener?.onStateChanged(value)
             }
+
+
         }
+
+    private var viewStateInited = false
 
     init {
         val inflater = LayoutInflater.from(getContext())
@@ -74,13 +81,20 @@ class MultiStateView
             addView(inflatedErrorView, inflatedErrorView.layoutParams)
         }
 
+        animationDuration = a.getInteger(
+            R.styleable.MultiStateView_msv_animationDuration,
+            DEFAULT_ANIMATION_DURATION
+        )
+
         viewState = when (a.getInt(R.styleable.MultiStateView_msv_viewState, VIEW_STATE_CONTENT)) {
             VIEW_STATE_ERROR -> ViewState.ERROR
             VIEW_STATE_EMPTY -> ViewState.EMPTY
             VIEW_STATE_LOADING -> ViewState.LOADING
             else -> ViewState.CONTENT
         }
-        animateLayoutChanges = a.getBoolean(R.styleable.MultiStateView_msv_animateViewChanges, false)
+
+        animateLayoutChanges =
+            a.getBoolean(R.styleable.MultiStateView_msv_animateViewChanges, false)
         a.recycle()
     }
 
@@ -143,7 +157,11 @@ class MultiStateView
      * @param state         The [com.kennyc.view.MultiStateView.ViewState] to set
      * @param switchToState If the [com.kennyc.view.MultiStateView.ViewState] should be switched to
      */
-    fun setViewForState(@LayoutRes layoutRes: Int, state: ViewState, switchToState: Boolean = false) {
+    fun setViewForState(
+        @LayoutRes layoutRes: Int,
+        state: ViewState,
+        switchToState: Boolean = false
+    ) {
         val view = LayoutInflater.from(context).inflate(layoutRes, this, false)
         setViewForState(view, state, switchToState)
     }
@@ -207,7 +225,12 @@ class MultiStateView
         return super.addViewInLayout(child, index, params)
     }
 
-    override fun addViewInLayout(child: View, index: Int, params: ViewGroup.LayoutParams, preventRequestLayout: Boolean): Boolean {
+    override fun addViewInLayout(
+        child: View,
+        index: Int,
+        params: ViewGroup.LayoutParams,
+        preventRequestLayout: Boolean
+    ): Boolean {
         if (isValidContentView(child)) contentView = child
         return super.addViewInLayout(child, index, params, preventRequestLayout)
     }
@@ -228,6 +251,7 @@ class MultiStateView
      * Shows the [View] based on the [com.kennyc.view.MultiStateView.ViewState]
      */
     private fun setView(previousState: ViewState) {
+
         when (viewState) {
             ViewState.LOADING -> {
                 requireNotNull(loadingView).apply {
@@ -235,9 +259,10 @@ class MultiStateView
                     errorView?.visibility = View.GONE
                     emptyView?.visibility = View.GONE
 
-                    if (animateLayoutChanges) {
-                        animateLayoutChange(getView(previousState))
+                    if (animateLayoutChanges && viewStateInited) {
+                        animateLayoutChange(previousState)
                     } else {
+                        viewStateInited = true
                         visibility = View.VISIBLE
                     }
                 }
@@ -249,9 +274,10 @@ class MultiStateView
                     errorView?.visibility = View.GONE
                     loadingView?.visibility = View.GONE
 
-                    if (animateLayoutChanges) {
-                        animateLayoutChange(getView(previousState))
+                    if (animateLayoutChanges && viewStateInited) {
+                        animateLayoutChange(previousState)
                     } else {
+                        viewStateInited = true
                         visibility = View.VISIBLE
                     }
                 }
@@ -263,9 +289,10 @@ class MultiStateView
                     loadingView?.visibility = View.GONE
                     emptyView?.visibility = View.GONE
 
-                    if (animateLayoutChanges) {
-                        animateLayoutChange(getView(previousState))
+                    if (animateLayoutChanges && viewStateInited) {
+                        animateLayoutChange(previousState)
                     } else {
+                        viewStateInited = true
                         visibility = View.VISIBLE
                     }
                 }
@@ -277,9 +304,10 @@ class MultiStateView
                     errorView?.visibility = View.GONE
                     emptyView?.visibility = View.GONE
 
-                    if (animateLayoutChanges) {
-                        animateLayoutChange(getView(previousState))
+                    if (animateLayoutChanges && viewStateInited) {
+                        animateLayoutChange(previousState)
                     } else {
+                        viewStateInited = true
                         visibility = View.VISIBLE
                     }
                 }
@@ -287,33 +315,47 @@ class MultiStateView
         }
     }
 
+    // private var exitAnimator: ObjectAnimator? = null
+    private var enterAnimator: ObjectAnimator? = null
+
     /**
      * Animates the layout changes between [ViewState]
      *
      * @param previousView The view that it was currently on
      */
-    private fun animateLayoutChange(previousView: View?) {
+    private fun animateLayoutChange(previousState: ViewState) {
+
+
+        val previousView = getView(previousState)
+
         if (previousView == null) {
             requireNotNull(getView(viewState)).visibility = View.VISIBLE
             return
         }
 
-        ObjectAnimator.ofFloat(previousView, "alpha", 1.0f, 0.0f).apply {
-            duration = 250L
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationStart(animation: Animator?) {
-                    previousView.visibility = View.VISIBLE
-                }
+        // exitAnimator?.cancel()
+        enterAnimator?.cancel()
 
-                override fun onAnimationEnd(animation: Animator) {
-                    previousView.visibility = View.GONE
-                    val currentView = requireNotNull(getView(viewState))
-                    currentView.visibility = View.VISIBLE
-                    ObjectAnimator.ofFloat(currentView, "alpha", 0.0f, 1.0f).setDuration(250L).start()
-                }
-            })
-        }.start()
+        requireNotNull(getView(viewState)).startEnterAnimator(true)
+
     }
+
+    /** 进入动画 */
+    private fun View.startEnterAnimator(reset: Boolean) {
+
+        val view = this
+        val start = if (reset) 0.0f else view.alpha
+        val diff = 1.0f - start
+        val duration = (animationDuration * diff).toLong()
+
+        val animator =
+            ObjectAnimator.ofFloat(view, "alpha", start, 1.0f).setDuration(duration)
+        enterAnimator = animator
+
+        view.visibility = View.VISIBLE
+        animator.start()
+    }
+
 
     interface StateListener {
         /**
@@ -359,3 +401,4 @@ private const val VIEW_STATE_CONTENT = 0
 private const val VIEW_STATE_ERROR = 1
 private const val VIEW_STATE_EMPTY = 2
 private const val VIEW_STATE_LOADING = 3
+private const val DEFAULT_ANIMATION_DURATION = 500
